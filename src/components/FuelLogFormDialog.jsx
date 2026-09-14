@@ -12,9 +12,13 @@ const { toast } = useToast();
 const [form, setForm] = useState({ vehicle_id: "", liters: "", cost: "", odometer: "", station: "", receipt_url: "" });
 const [uploading, setUploading] = useState(false);
 const [saving, setSaving] = useState(false);
+const [fuelStations, setFuelStations] = useState([]);
 
 useEffect(() => {
-if (open) setForm({ vehicle_id: "", liters: "", cost: "", odometer: "", station: "", receipt_url: "" });
+if (open) {
+setForm({ vehicle_id: "", liters: "", cost: "", odometer: "", station: "", receipt_url: "" });
+api.entities.FuelStation.list("name", 200).then(setFuelStations);
+}
 }, [open]);
 
 const uploadReceipt = async (file) => {
@@ -86,7 +90,15 @@ return (
 </div>
 <div className="space-y-1.5">
 <Label>Station</Label>
-<Input value={form.station} onChange={(e) => setForm((f) => ({ ...f, station: e.target.value }))} placeholder="Shell — Tejgaon" />
+<Input
+list="fuel-station-options"
+value={form.station}
+onChange={(e) => setForm((f) => ({ ...f, station: e.target.value }))}
+placeholder="Shell — Tejgaon"
+/>
+<datalist id="fuel-station-options">
+{fuelStations.map((s) => <option key={s.id} value={s.name} />)}
+</datalist>
 </div>
 </div>
 <div className="space-y-1.5">

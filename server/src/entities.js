@@ -42,10 +42,13 @@ export const entities = {
       model: z.string().min(1),
       year: optionalInt(),
       vin: optionalString(),
-      type: z.enum(['van', 'box_truck', 'semi_truck', 'reefer_truck', 'sedan', 'suv']).optional(),
+      // Type/fuel type are backed by the VehicleType/FuelType master data
+      // tables (seeded with these same defaults) rather than a fixed enum,
+      // so admins can add new ones from Master Data without a code change.
+      type: z.string().min(1).optional(),
       status: z.enum(['active', 'idle', 'maintenance', 'retired']).optional(),
       odometer: optionalInt(),
-      fuel_type: z.enum(['diesel', 'gasoline', 'electric', 'hybrid']).optional(),
+      fuel_type: z.string().min(1).optional(),
       purchase_date: optionalString(),
       purchase_cost: optionalNumber(),
       last_service_odometer: optionalInt(),
@@ -104,6 +107,7 @@ export const entities = {
       origin TEXT,
       destination TEXT,
       notes TEXT,
+      cost_center TEXT,
       created_date TEXT NOT NULL,
       updated_date TEXT NOT NULL
     `,
@@ -120,6 +124,7 @@ export const entities = {
       origin: optionalString(),
       destination: optionalString(),
       notes: optionalString(),
+      cost_center: optionalString(),
     }),
     defaults: { status: 'assigned' },
   },
@@ -212,6 +217,134 @@ export const entities = {
     }),
     defaults: { severity: 'low', status: 'open' },
   },
+
+  // --- Master data: admin-managed reference lists, all through the same
+  // generic entity CRUD routes as the operational entities above. ---
+
+  Location: {
+    table: 'locations',
+    columns: `
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'depot',
+      address TEXT,
+      city TEXT,
+      notes TEXT,
+      created_date TEXT NOT NULL,
+      updated_date TEXT NOT NULL
+    `,
+    indexes: ['type'],
+    schema: z.object({
+      name: z.string().min(1),
+      type: z.enum(['depot', 'hub', 'customer_site', 'warehouse', 'other']).optional(),
+      address: optionalString(),
+      city: optionalString(),
+      notes: optionalString(),
+    }),
+    defaults: { type: 'depot' },
+  },
+
+  FuelStation: {
+    table: 'fuel_stations',
+    columns: `
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      brand TEXT,
+      address TEXT,
+      city TEXT,
+      notes TEXT,
+      created_date TEXT NOT NULL,
+      updated_date TEXT NOT NULL
+    `,
+    indexes: [],
+    schema: z.object({
+      name: z.string().min(1),
+      brand: optionalString(),
+      address: optionalString(),
+      city: optionalString(),
+      notes: optionalString(),
+    }),
+    defaults: {},
+  },
+
+  VehicleType: {
+    table: 'vehicle_types',
+    columns: `
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      notes TEXT,
+      created_date TEXT NOT NULL,
+      updated_date TEXT NOT NULL
+    `,
+    indexes: ['code'],
+    schema: z.object({
+      name: z.string().min(1),
+      code: z.string().min(1),
+      notes: optionalString(),
+    }),
+    defaults: {},
+  },
+
+  FuelType: {
+    table: 'fuel_types',
+    columns: `
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      notes TEXT,
+      created_date TEXT NOT NULL,
+      updated_date TEXT NOT NULL
+    `,
+    indexes: ['code'],
+    schema: z.object({
+      name: z.string().min(1),
+      code: z.string().min(1),
+      notes: optionalString(),
+    }),
+    defaults: {},
+  },
+
+  CostCenter: {
+    table: 'cost_centers',
+    columns: `
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      code TEXT,
+      type TEXT NOT NULL DEFAULT 'cost_center',
+      notes TEXT,
+      created_date TEXT NOT NULL,
+      updated_date TEXT NOT NULL
+    `,
+    indexes: ['type'],
+    schema: z.object({
+      name: z.string().min(1),
+      code: optionalString(),
+      type: z.enum(['cost_center', 'customer', 'department']).optional(),
+      notes: optionalString(),
+    }),
+    defaults: { type: 'cost_center' },
+  },
 };
 
 export const entityNames = Object.keys(entities);
+
+// Seeds so existing vehicle type/fuel type values (previously a fixed enum)
+// keep resolving to a real master row after the switch to admin-editable
+// lists — inserted once, only when the table is empty.
+export const seedData = {
+  VehicleType: [
+    { name: 'Van', code: 'van' },
+    { name: 'Box Truck', code: 'box_truck' },
+    { name: 'Semi Truck', code: 'semi_truck' },
+    { name: 'Reefer Truck', code: 'reefer_truck' },
+    { name: 'Sedan', code: 'sedan' },
+    { name: 'SUV', code: 'suv' },
+  ],
+  FuelType: [
+    { name: 'Diesel', code: 'diesel' },
+    { name: 'Gasoline', code: 'gasoline' },
+    { name: 'Electric', code: 'electric' },
+    { name: 'Hybrid', code: 'hybrid' },
+  ],
+};

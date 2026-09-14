@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { VEHICLE_STATUSES, VEHICLE_TYPES, FUEL_TYPES, DEFAULT_SERVICE_INTERVAL_KM } from "@/lib/fleet";
+import { VEHICLE_STATUSES, DEFAULT_SERVICE_INTERVAL_KM } from "@/lib/fleet";
 import { api } from "@/api/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -19,10 +19,45 @@ export default function VehicleFormDialog({ open, onOpenChange, vehicle, drivers
 const { toast } = useToast();
 const [form, setForm] = useState(empty);
 const [saving, setSaving] = useState(false);
+const [vehicleTypes, setVehicleTypes] = useState([]);
+const [fuelTypes, setFuelTypes] = useState([]);
+const [locations, setLocations] = useState([]);
 
 useEffect(() => {
-if (open) setForm(vehicle ? { ...empty, ...vehicle } : empty);
+if (open) {
+setForm(vehicle ? { ...empty, ...vehicle } : empty);
+// Master data (types/locations) is admin-managed and rarely changes —
+// refetching each time the dialog opens keeps it current without needing
+// a shared cache.
+Promise.all([
+api.entities.VehicleType.list("name", 100),
+api.entities.FuelType.list("name", 100),
+api.entities.Location.list("name", 200),
+]).then(([types, fuels, locs]) => {
+setVehicleTypes(types);
+setFuelTypes(fuels);
+setLocations(locs);
+});
+}
 }, [open, vehicle]);
+
+// A vehicle's stored type/fuel_type/location may not match a master entry
+// (legacy data, or the row was deleted from Master Data) — keep it in the
+// dropdown as its own option instead of silently discarding it. Also dedupes
+// by value: Master Data doesn't enforce unique names/codes, but the Select
+// itself needs unique values, and two rows with the same name are already
+// indistinguishable once stored (it's a name, not an id, on the vehicle).
+const withCurrentValue = (list, current, toOption) => {
+const seen = new Set();
+const options = list.map(toOption).filter((o) => (seen.has(o.value) ? false : seen.add(o.value)));
+if (current && !options.some((o) => o.value === current)) {
+options.unshift({ value: current, label: `${current} (not in Master Data)` });
+}
+return options;
+};
+const typeOptions = withCurrentValue(vehicleTypes, form.type, (t) => ({ value: t.code, label: t.name }));
+const fuelOptions = withCurrentValue(fuelTypes, form.fuel_type, (t) => ({ value: t.code, label: t.name }));
+const locationOptions = withCurrentValue(locations, form.location, (l) => ({ value: l.name, label: l.name }));
 
 const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v === "" || v === undefined ? "" : v }));
 
@@ -68,7 +103,16 @@ return (
 </div>
 <div className="space-y-1.5">
 <Label>Location</Label>
-<Input value={form.location} onChange={(e) => set("location")(e.target.value)} placeholder="Depot — Dhaka Hub" />
+<Select value={form.location || "none"} onValueChange={(v) => set("location")(v === "none" ? "" : v)}>
+<SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+<SelectContent className="bg-popover">
+<SelectItem value="none">Unassigned</SelectItem>
+{locationOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+</SelectContent>
+</Select>
+{!locations.length && (
+<p className="text-xs text-muted-foreground">No locations yet — add one under Master Data → Locations.</p>
+)}
 </div>
 <div className="space-y-1.5">
 <Label>Make *</Label>
@@ -87,7 +131,7 @@ return (
 <Select value={form.type} onValueChange={set("type")}>
 <SelectTrigger><SelectValue /></SelectTrigger>
 <SelectContent className="bg-popover">
-{VEHICLE_TYPES.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
+{typeOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
 </SelectContent>
 </Select>
 </div>
@@ -96,7 +140,7 @@ return (
 <Select value={form.fuel_type} onValueChange={set("fuel_type")}>
 <SelectTrigger><SelectValue /></SelectTrigger>
 <SelectContent className="bg-popover">
-{FUEL_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+{fuelOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
 </SelectContent>
 </Select>
 </div>

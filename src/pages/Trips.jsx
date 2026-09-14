@@ -22,18 +22,21 @@ const [drivers, setDrivers] = useState([]);
 const [filter, setFilter] = useState("all");
 const [assignOpen, setAssignOpen] = useState(false);
 const [completing, setCompleting] = useState(null);
-const [form, setForm] = useState({ vehicle_id: "", driver_id: "", origin: "", destination: "" });
+const [form, setForm] = useState({ vehicle_id: "", driver_id: "", origin: "", destination: "", cost_center: "" });
 const [saving, setSaving] = useState(false);
+const [costCenters, setCostCenters] = useState([]);
 
 const load = async () => {
-const [t, v, d] = await Promise.all([
+const [t, v, d, cc] = await Promise.all([
 api.entities.Trip.list("-created_date", 500),
 api.entities.Vehicle.list("-created_date", 500),
 api.entities.Driver.list("-created_date", 500),
+api.entities.CostCenter.list("name", 200),
 ]);
 setTrips(t);
 setVehicles(v);
 setDrivers(d);
+setCostCenters(cc);
 };
 useEffect(() => { load(); }, []);
 
@@ -54,7 +57,7 @@ start_odometer: vehicle?.odometer || 0,
 });
 toast({ title: "Trip assigned", description: `${form.origin || "Trip"} → ${form.destination || "destination"} dispatched to the driver portal.` });
 setAssignOpen(false);
-setForm({ vehicle_id: "", driver_id: "", origin: "", destination: "" });
+setForm({ vehicle_id: "", driver_id: "", origin: "", destination: "", cost_center: "" });
 load();
 } finally {
 setSaving(false);
@@ -120,6 +123,7 @@ return (
 <TableRow key={t.id} className="border-border/40">
 <TableCell>
 <p className="text-sm font-medium">{t.origin || "—"} <span className="text-muted-foreground">→</span> {t.destination || "—"}</p>
+{t.cost_center && <p className="text-xs text-muted-foreground">{t.cost_center}</p>}
 <p className="text-xs text-muted-foreground sm:hidden">{vehicle?.plate_number}</p>
 </TableCell>
 <TableCell className="hidden font-mono text-sm md:table-cell">{vehicle?.plate_number || "—"}</TableCell>
@@ -178,6 +182,16 @@ return (
 <Label>Destination</Label>
 <Input value={form.destination} onChange={(e) => setForm((f) => ({ ...f, destination: e.target.value }))} placeholder="Chattogram" />
 </div>
+</div>
+<div className="space-y-1.5">
+<Label>Cost center</Label>
+<Select value={form.cost_center || "none"} onValueChange={(v) => setForm((f) => ({ ...f, cost_center: v === "none" ? "" : v }))}>
+<SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+<SelectContent className="bg-popover">
+<SelectItem value="none">None</SelectItem>
+{costCenters.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+</SelectContent>
+</Select>
 </div>
 <DialogFooter>
 <Button type="button" variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>

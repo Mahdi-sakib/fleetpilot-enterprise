@@ -82,6 +82,11 @@ export const api = {
     FuelLog: makeEntityClient('FuelLog'),
     WorkOrder: makeEntityClient('WorkOrder'),
     DefectReport: makeEntityClient('DefectReport'),
+    Location: makeEntityClient('Location'),
+    FuelStation: makeEntityClient('FuelStation'),
+    VehicleType: makeEntityClient('VehicleType'),
+    FuelType: makeEntityClient('FuelType'),
+    CostCenter: makeEntityClient('CostCenter'),
   },
   auth: {
     me: () => request('/auth/me'),

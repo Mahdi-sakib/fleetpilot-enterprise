@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { Menu, LayoutDashboard, Truck, Users, Route, Fuel, Wrench, AlertTriangle, UserCircle, Radar } from "lucide-react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+Menu, LayoutDashboard, Truck, Users, Route, Fuel, Wrench, AlertTriangle, UserCircle, Radar,
+Database, ChevronDown, MapPin, Fuel as FuelIcon, Tags, Droplet, Landmark,
+} from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { MASTER_DATA_TYPES } from "@/lib/masterData";
 
 const NAV = [
 { to: "/", label: "Command Center", icon: LayoutDashboard, end: true },
@@ -14,7 +18,18 @@ const NAV = [
 { to: "/driver-portal", label: "Driver Portal", icon: UserCircle },
 ];
 
+const MASTER_ICONS = {
+locations: MapPin,
+"fuel-stations": FuelIcon,
+"vehicle-types": Tags,
+"fuel-types": Droplet,
+"cost-centers": Landmark,
+};
+
 function NavLinks({ onNavigate }) {
+const location = useLocation();
+const [mastersOpen, setMastersOpen] = useState(location.pathname.startsWith("/masters"));
+
 return (
 <nav className="flex flex-col gap-1 px-3">
 {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -35,6 +50,40 @@ isActive
 {label}
 </NavLink>
 ))}
+
+<button
+type="button"
+onClick={() => setMastersOpen((v) => !v)}
+className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+>
+<Database className="h-4 w-4" />
+<span className="flex-1 text-left">Master Data</span>
+<ChevronDown className={`h-3.5 w-3.5 transition-transform ${mastersOpen ? "rotate-180" : ""}`} />
+</button>
+{mastersOpen && (
+<div className="ml-3.5 flex flex-col gap-1 border-l border-border/50 pl-3.5">
+{MASTER_DATA_TYPES.map(({ slug, label }) => {
+const Icon = MASTER_ICONS[slug] || Database;
+return (
+<NavLink
+key={slug}
+to={`/masters/${slug}`}
+onClick={onNavigate}
+className={({ isActive }) =>
+`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+isActive
+? "bg-primary/15 text-primary glow-teal"
+: "text-sidebar-foreground/70 hover:bg-secondary hover:text-foreground"
+}`
+}
+>
+<Icon className="h-3.5 w-3.5" />
+{label}
+</NavLink>
+);
+})}
+</div>
+)}
 </nav>
 );
 }
