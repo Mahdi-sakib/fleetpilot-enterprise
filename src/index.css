@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Obsidian Fleet theme */
+    --background: 220 21% 5%; /* #0B0C10 */
+    --foreground: 180 20% 96%;
+    --card: 217 27% 9%;
+    --card-foreground: 180 20% 96%;
+    --popover: 217 27% 8%;
+    --popover-foreground: 180 20% 96%;
+    --primary: 176 39% 45%; /* #45A29E telemetry teal */
+    --primary-foreground: 220 21% 5%;
+    --secondary: 217 27% 16%; /* #1F2833 */
+    --secondary-foreground: 180 20% 96%;
+    --muted: 217 27% 13%;
+    --muted-foreground: 213 13% 64%;
+    --accent: 217 27% 18%;
+    --accent-foreground: 180 20% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217 20% 22%;
+    --input: 217 20% 22%;
+    --ring: 176 39% 45%;
+    --chart-1: 176 39% 45%;
+    --chart-2: 199 98% 48%;
+    --chart-3: 43 96% 56%;
+    --chart-4: 271 76% 63%;
+    --chart-5: 0 72% 55%;
+    --radius: 0.75rem;
+    --font-heading: ui-sans-serif, system-ui, sans-serif;
+    --font-body: ui-sans-serif, system-ui, sans-serif;
+    --font-display: ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sidebar-background: 220 21% 6%;
+    --sidebar-foreground: 213 13% 78%;
+    --sidebar-primary: 176 39% 45%;
+    --sidebar-primary-foreground: 220 21% 5%;
+    --sidebar-accent: 217 27% 16%;
+    --sidebar-accent-foreground: 180 20% 96%;
+    --sidebar-border: 217 20% 20%;
+    --sidebar-ring: 176 39% 45%;
+  }
+
+  .dark {
+    --background: 220 21% 5%;
+    --foreground: 180 20% 96%;
+    --card: 217 27% 9%;
+    --card-foreground: 180 20% 96%;
+    --popover: 217 27% 8%;
+    --popover-foreground: 180 20% 96%;
+    --primary: 176 39% 45%;
+    --primary-foreground: 220 21% 5%;
+    --secondary: 217 27% 16%;
+    --secondary-foreground: 180 20% 96%;
+    --muted: 217 27% 13%;
+    --muted-foreground: 213 13% 64%;
+    --accent: 217 27% 18%;
+    --accent-foreground: 180 20% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 217 20% 22%;
+    --input: 217 20% 22%;
+    --ring: 176 39% 45%;
+    --chart-1: 176 39% 45%;
+    --chart-2: 199 98% 48%;
+    --chart-3: 43 96% 56%;
+    --chart-4: 271 76% 63%;
+    --chart-5: 0 72% 55%;
+    --sidebar-background: 220 21% 6%;
+    --sidebar-foreground: 213 13% 78%;
+    --sidebar-primary: 176 39% 45%;
+    --sidebar-primary-foreground: 220 21% 5%;
+    --sidebar-accent: 217 27% 16%;
+    --sidebar-accent-foreground: 180 20% 96%;
+    --sidebar-border: 217 20% 20%;
+    --sidebar-ring: 176 39% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(69, 162, 158, 0.08), transparent);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .glow-teal {
+    box-shadow: 0 0 24px rgba(69, 162, 158, 0.25);
+  }
+  .text-glow {
+    text-shadow: 0 0 12px rgba(69, 162, 158, 0.5);
+  }
+  .card-glow {
+    box-shadow: 0 0 0 1px rgba(69, 162, 158, 0.08), 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--secondary));
+    border-radius: 3px;
+  }
+}
