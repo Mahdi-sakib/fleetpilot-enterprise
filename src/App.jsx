@@ -35,7 +35,7 @@ const RouteFallback = () => (
 );
 
 const AuthenticatedApp = () => {
-const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
 
 // Show loading spinner while checking app public settings or auth
 if (isLoadingPublicSettings || isLoadingAuth) {
@@ -46,15 +46,13 @@ return (
 );
 }
 
-// Handle authentication errors
-if (authError) {
-if (authError.type === 'user_not_registered') {
+// 'auth_required' is the normal state for any anonymous visitor (e.g. on
+// /login or /register) and is handled per-route by ProtectedRoute below —
+// redirecting here too, before the public routes even render, causes an
+// infinite /login?returnTo=... loop for signed-out users. Only a genuine
+// app-level error (user_not_registered) short-circuits the whole app.
+if (authError?.type === 'user_not_registered') {
 return <UserNotRegisteredError />;
-} else if (authError.type === 'auth_required') {
-// Redirect to login automatically
-navigateToLogin();
-return null;
-}
 }
 
 // Render the main app

@@ -13,6 +13,9 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 
+// Only guards the abuse-prone endpoints (credential checks, OTP/reset
+// issuance). /me and /me updates are called on every page load/reload by
+// AuthContext, so rate-limiting the whole router would lock out normal use.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -20,7 +23,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many attempts. Please try again later.' },
 });
-router.use(authLimiter);
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -45,7 +47,7 @@ const credentialsSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
-router.post('/register', asyncHandler(async (req, res) => {
+router.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message || 'Invalid input');
   const { email, password } = parsed.data;
@@ -79,7 +81,7 @@ router.post('/register', asyncHandler(async (req, res) => {
   res.status(201).json({ message: 'Verification code sent' });
 }));
 
-router.post('/resend-otp', (req, res) => {
+router.post('/resend-otp', authLimiter, (req, res) => {
   const email = String(req.body?.email || '').toLowerCase();
   const user = findByEmail(email);
   if (user && !user.email_verified) {
@@ -101,7 +103,7 @@ router.post('/resend-otp', (req, res) => {
   res.json({ message: 'If an account exists, a new code was sent' });
 });
 
-router.post('/verify-otp', (req, res) => {
+router.post('/verify-otp', authLimiter, (req, res) => {
   const email = String(req.body?.email || '').toLowerCase();
   const otpCode = String(req.body?.otpCode || '');
   const user = findByEmail(email);
@@ -118,7 +120,7 @@ router.post('/verify-otp', (req, res) => {
   res.json({ access_token: signAccessToken(updated), user: publicUser(updated) });
 });
 
-router.post('/login', asyncHandler(async (req, res) => {
+router.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const parsed = credentialsSchema.safeParse(req.body);
   if (!parsed.success) throw new ApiError(400, 'Invalid email or password');
   const user = findByEmail(parsed.data.email);
@@ -129,7 +131,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({ access_token: signAccessToken(user), user: publicUser(user) });
 }));
 
-router.post('/forgot-password', (req, res) => {
+router.post('/forgot-password', authLimiter, (req, res) => {
   const email = String(req.body?.email || '').toLowerCase();
   const user = findByEmail(email);
   if (user) {
@@ -151,7 +153,7 @@ router.post('/forgot-password', (req, res) => {
   res.json({ message: 'If an account exists, a reset link was sent' });
 });
 
-router.post('/reset-password', asyncHandler(async (req, res) => {
+router.post('/reset-password', authLimiter, asyncHandler(async (req, res) => {
   const resetToken = String(req.body?.resetToken || '');
   const newPassword = String(req.body?.newPassword || '');
   if (!resetToken) throw new ApiError(400, 'Missing reset token');
