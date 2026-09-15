@@ -105,6 +105,7 @@ export const api = {
     resendOtp: (email) => request('/auth/resend-otp', { method: 'POST', body: { email } }),
     resetPasswordRequest: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: (data) => request('/auth/reset-password', { method: 'POST', body: data }),
+    changePassword: (data) => request('/auth/change-password', { method: 'POST', body: data }),
     loginWithProvider: (provider, returnTo) => {
       window.location.href = `${API_BASE}/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo || '/')}`;
     },

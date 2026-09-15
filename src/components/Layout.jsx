@@ -6,6 +6,7 @@ Database, ChevronDown, MapPin, Fuel as FuelIcon, Tags, Droplet, Landmark,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MASTER_DATA_TYPES } from "@/lib/masterData";
+import AccountMenu from "@/components/AccountMenu";
 
 const NAV = [
 { to: "/", label: "Command Center", icon: LayoutDashboard, end: true },
@@ -102,6 +103,9 @@ return (
 </div>
 <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
 <NavLinks onNavigate={onNavigate} />
+</div>
+<div className="border-t border-border/50 px-3 py-3">
+<AccountMenu />
 </div>
 <div className="border-t border-border/50 px-6 py-4">
 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Fleet capacity</p>

@@ -193,6 +193,24 @@ router.patch('/me', requireAuth, asyncHandler(async (req, res) => {
   res.json(publicUser(await get('SELECT * FROM users WHERE id = ?', [req.user.id])));
 }));
 
+router.post('/change-password', requireAuth, authLimiter, asyncHandler(async (req, res) => {
+  const currentPassword = String(req.body?.currentPassword || '');
+  const newPassword = String(req.body?.newPassword || '');
+  if (newPassword.length < 8) throw new ApiError(400, 'New password must be at least 8 characters');
+  if (!req.user.password_hash) throw new ApiError(400, 'This account has no password set (signed in via Google)');
+
+  const ok = await verifyPassword(currentPassword, req.user.password_hash);
+  if (!ok) throw new ApiError(401, 'Current password is incorrect');
+
+  const password_hash = await hashPassword(newPassword);
+  await run('UPDATE users SET password_hash = ?, updated_date = ? WHERE id = ?', [
+    password_hash,
+    new Date().toISOString(),
+    req.user.id,
+  ]);
+  res.json({ message: 'Password changed' });
+}));
+
 // --- Google OAuth (authorization-code flow, no extra SDK dependency) ---
 
 router.get('/google/start', (req, res) => {
