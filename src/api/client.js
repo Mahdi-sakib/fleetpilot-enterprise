@@ -1,5 +1,10 @@
 const TOKEN_KEY = 'fleetpilot_access_token';
 
+// Empty by default (same-origin — dev proxy or a single-host production
+// deploy). Set VITE_API_URL at build time when the frontend and API are
+// hosted on different origins (e.g. a static host + a separate API host).
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 function getToken() {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -32,7 +37,7 @@ if (typeof window !== 'undefined') {
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const token = getToken();
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     method,
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -101,7 +106,7 @@ export const api = {
     resetPasswordRequest: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: (data) => request('/auth/reset-password', { method: 'POST', body: data }),
     loginWithProvider: (provider, returnTo) => {
-      window.location.href = `/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo || '/')}`;
+      window.location.href = `${API_BASE}/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo || '/')}`;
     },
     setToken,
     logout: (redirectTo) => {
@@ -120,7 +125,7 @@ export const api = {
       const form = new FormData();
       form.append('file', file);
       const token = getToken();
-      const res = await fetch('/api/uploads', {
+      const res = await fetch(`${API_BASE}/api/uploads`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form,
@@ -136,5 +141,9 @@ export const api = {
       }
       return res.json();
     },
+    // Uploaded files (e.g. fuel receipts) come back as a path relative to
+    // the API host (/uploads/...) — resolve it against API_BASE so it
+    // still loads when the frontend and API are on different origins.
+    resolveUrl: (relativeUrl) => (relativeUrl ? `${API_BASE}${relativeUrl}` : relativeUrl),
   },
 };

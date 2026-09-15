@@ -3,6 +3,10 @@ import { z } from 'zod';
 // Single source of truth for every domain entity: its table name, its SQL
 // column definitions (for migrations), and the zod schema used to validate
 // create/update payloads.
+//
+// Column types: id/*_id columns and anything listed in `indexes` are
+// VARCHAR (MySQL can't index a TEXT/BLOB column without an explicit key
+// length) — everything else stays TEXT since it's never indexed.
 
 const optionalString = () => z.string().nullable().optional();
 const optionalNumber = () => z.number().nullable().optional();
@@ -12,28 +16,28 @@ export const entities = {
   Vehicle: {
     table: 'vehicles',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       plate_number TEXT NOT NULL,
       make TEXT NOT NULL,
       model TEXT NOT NULL,
       year INTEGER,
       vin TEXT,
-      type TEXT NOT NULL DEFAULT 'van',
-      status TEXT NOT NULL DEFAULT 'active',
+      type VARCHAR(50) NOT NULL DEFAULT 'van',
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
       odometer INTEGER NOT NULL DEFAULT 0,
-      fuel_type TEXT NOT NULL DEFAULT 'diesel',
+      fuel_type VARCHAR(50) NOT NULL DEFAULT 'diesel',
       purchase_date TEXT,
       purchase_cost REAL,
       last_service_odometer INTEGER NOT NULL DEFAULT 0,
       service_interval_km INTEGER NOT NULL DEFAULT 10000,
-      assigned_driver_id TEXT,
+      assigned_driver_id VARCHAR(36),
       location TEXT,
       fuel_level REAL,
       current_speed REAL,
       engine_temp REAL,
       last_ping TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['status', 'assigned_driver_id'],
     schema: z.object({
@@ -66,17 +70,17 @@ export const entities = {
   Driver: {
     table: 'drivers',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       full_name TEXT NOT NULL,
-      email TEXT NOT NULL,
+      email VARCHAR(255) NOT NULL,
       phone TEXT,
       license_number TEXT,
       license_expiry TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
       safety_score REAL NOT NULL DEFAULT 100,
       total_trips INTEGER NOT NULL DEFAULT 0,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['status', 'email'],
     schema: z.object({
@@ -95,10 +99,10 @@ export const entities = {
   Trip: {
     table: 'trips',
     columns: `
-      id TEXT PRIMARY KEY,
-      vehicle_id TEXT NOT NULL,
-      driver_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'assigned',
+      id VARCHAR(36) PRIMARY KEY,
+      vehicle_id VARCHAR(36) NOT NULL,
+      driver_id VARCHAR(36) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'assigned',
       start_time TEXT,
       end_time TEXT,
       start_odometer INTEGER,
@@ -108,8 +112,8 @@ export const entities = {
       destination TEXT,
       notes TEXT,
       cost_center TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['vehicle_id', 'driver_id', 'status'],
     schema: z.object({
@@ -132,17 +136,17 @@ export const entities = {
   FuelLog: {
     table: 'fuel_logs',
     columns: `
-      id TEXT PRIMARY KEY,
-      vehicle_id TEXT NOT NULL,
-      driver_id TEXT,
-      log_date TEXT,
+      id VARCHAR(36) PRIMARY KEY,
+      vehicle_id VARCHAR(36) NOT NULL,
+      driver_id VARCHAR(36),
+      log_date VARCHAR(40),
       liters REAL NOT NULL,
       cost REAL NOT NULL,
       odometer INTEGER,
       station TEXT,
       receipt_url TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['vehicle_id', 'log_date'],
     schema: z.object({
@@ -161,19 +165,19 @@ export const entities = {
   WorkOrder: {
     table: 'work_orders',
     columns: `
-      id TEXT PRIMARY KEY,
-      vehicle_id TEXT NOT NULL,
+      id VARCHAR(36) PRIMARY KEY,
+      vehicle_id VARCHAR(36) NOT NULL,
       title TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'preventive',
-      status TEXT NOT NULL DEFAULT 'open',
-      priority TEXT NOT NULL DEFAULT 'medium',
+      type VARCHAR(50) NOT NULL DEFAULT 'preventive',
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      priority VARCHAR(20) NOT NULL DEFAULT 'medium',
       due_date TEXT,
       odometer_due INTEGER,
       completed_date TEXT,
       cost REAL,
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['vehicle_id', 'status'],
     schema: z.object({
@@ -194,16 +198,16 @@ export const entities = {
   DefectReport: {
     table: 'defect_reports',
     columns: `
-      id TEXT PRIMARY KEY,
-      vehicle_id TEXT NOT NULL,
-      driver_id TEXT,
-      report_date TEXT,
-      severity TEXT NOT NULL DEFAULT 'low',
+      id VARCHAR(36) PRIMARY KEY,
+      vehicle_id VARCHAR(36) NOT NULL,
+      driver_id VARCHAR(36),
+      report_date VARCHAR(40),
+      severity VARCHAR(20) NOT NULL DEFAULT 'low',
       title TEXT NOT NULL,
       description TEXT,
-      status TEXT NOT NULL DEFAULT 'open',
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      status VARCHAR(20) NOT NULL DEFAULT 'open',
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['vehicle_id', 'status', 'report_date'],
     schema: z.object({
@@ -224,14 +228,14 @@ export const entities = {
   Location: {
     table: 'locations',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       name TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'depot',
+      type VARCHAR(20) NOT NULL DEFAULT 'depot',
       address TEXT,
       city TEXT,
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['type'],
     schema: z.object({
@@ -247,14 +251,14 @@ export const entities = {
   FuelStation: {
     table: 'fuel_stations',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       name TEXT NOT NULL,
       brand TEXT,
       address TEXT,
       city TEXT,
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: [],
     schema: z.object({
@@ -270,12 +274,12 @@ export const entities = {
   VehicleType: {
     table: 'vehicle_types',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       name TEXT NOT NULL,
-      code TEXT NOT NULL,
+      code VARCHAR(50) NOT NULL,
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['code'],
     schema: z.object({
@@ -289,12 +293,12 @@ export const entities = {
   FuelType: {
     table: 'fuel_types',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       name TEXT NOT NULL,
-      code TEXT NOT NULL,
+      code VARCHAR(50) NOT NULL,
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['code'],
     schema: z.object({
@@ -308,13 +312,13 @@ export const entities = {
   CostCenter: {
     table: 'cost_centers',
     columns: `
-      id TEXT PRIMARY KEY,
+      id VARCHAR(36) PRIMARY KEY,
       name TEXT NOT NULL,
       code TEXT,
-      type TEXT NOT NULL DEFAULT 'cost_center',
+      type VARCHAR(20) NOT NULL DEFAULT 'cost_center',
       notes TEXT,
-      created_date TEXT NOT NULL,
-      updated_date TEXT NOT NULL
+      created_date VARCHAR(40) NOT NULL,
+      updated_date VARCHAR(40) NOT NULL
     `,
     indexes: ['type'],
     schema: z.object({

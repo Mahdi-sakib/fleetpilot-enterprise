@@ -85,7 +85,7 @@ return (
 <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">{l.odometer?.toLocaleString() || "—"}</TableCell>
 <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">{l.station || "—"}</TableCell>
 <TableCell>
-{l.receipt_url ? <a href={l.receipt_url} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm">View</a> : <span className="text-sm text-muted-foreground">—</span>}
+{l.receipt_url ? <a href={api.files.resolveUrl(l.receipt_url)} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm">View</a> : <span className="text-sm text-muted-foreground">—</span>}
 </TableCell>
 </TableRow>
 );

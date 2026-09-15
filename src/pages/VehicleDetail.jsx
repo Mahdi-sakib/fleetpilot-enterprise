@@ -223,7 +223,7 @@ export default function VehicleDetail() {
                       <TableCell className="text-right font-mono text-sm">{formatCurrency(f.cost)}</TableCell>
                       <TableCell className="hidden font-mono text-sm text-muted-foreground md:table-cell">{f.odometer?.toLocaleString() || "—"}</TableCell>
                       <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">{f.station || "—"}</TableCell>
-                      <TableCell>{f.receipt_url ? <a href={f.receipt_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View</a> : <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell>{f.receipt_url ? <a href={api.files.resolveUrl(f.receipt_url)} target="_blank" rel="noreferrer" className="text-primary hover:underline">View</a> : <span className="text-muted-foreground">—</span>}</TableCell>
                     </TableRow>
                   ))}
                   {!fuelLogs.length && <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">No fuel logs yet.</TableCell></TableRow>}

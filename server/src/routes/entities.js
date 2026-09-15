@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { db } from '../db.js';
+import { all, get, run } from '../db.js';
 import { entities } from '../entities.js';
 import { newId } from '../utils/ids.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { requireAuth } from '../middleware/auth.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -38,19 +39,17 @@ function parseLimit(limit) {
 
 router.param('entity', resolveEntity);
 
-router.get('/:entity', (req, res) => {
+router.get('/:entity', asyncHandler(async (req, res) => {
   const def = req.entityDef;
   const { column, direction } = parseSort(req.query.sort, def);
   const limit = parseLimit(req.query.limit);
-  const rows = db
-    .prepare(`SELECT * FROM ${def.table} ORDER BY ${column} ${direction} LIMIT ?`)
-    .all(limit);
+  const rows = await all(`SELECT * FROM ${def.table} ORDER BY ${column} ${direction} LIMIT ?`, [limit]);
   res.json(rows);
-});
+}));
 
 // POST because equality filters are sent as a JSON body (mirrors the
 // object-based `.filter({...})` calls the frontend already makes).
-router.post('/:entity/query', (req, res) => {
+router.post('/:entity/query', asyncHandler(async (req, res) => {
   const def = req.entityDef;
   const columns = allowedColumns(def);
   const filters = req.body && typeof req.body === 'object' ? req.body : {};
@@ -64,19 +63,20 @@ router.post('/:entity/query', (req, res) => {
   const { column, direction } = parseSort(req.query.sort, def);
   const limit = parseLimit(req.query.limit);
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-  const rows = db
-    .prepare(`SELECT * FROM ${def.table} ${where} ORDER BY ${column} ${direction} LIMIT ?`)
-    .all(...values, limit);
+  const rows = await all(`SELECT * FROM ${def.table} ${where} ORDER BY ${column} ${direction} LIMIT ?`, [
+    ...values,
+    limit,
+  ]);
   res.json(rows);
-});
+}));
 
-router.get('/:entity/:id', (req, res) => {
-  const row = db.prepare(`SELECT * FROM ${req.entityDef.table} WHERE id = ?`).get(req.params.id);
+router.get('/:entity/:id', asyncHandler(async (req, res) => {
+  const row = await get(`SELECT * FROM ${req.entityDef.table} WHERE id = ?`, [req.params.id]);
   if (!row) throw new ApiError(404, 'Not found');
   res.json(row);
-});
+}));
 
-router.post('/:entity', (req, res) => {
+router.post('/:entity', asyncHandler(async (req, res) => {
   const def = req.entityDef;
   const parsed = def.schema.safeParse(req.body);
   if (!parsed.success) throw new ApiError(400, 'Validation failed', { issues: parsed.error.issues });
@@ -85,15 +85,16 @@ router.post('/:entity', (req, res) => {
   const record = { ...def.defaults, ...parsed.data, id: newId(), created_date: now, updated_date: now };
   const columns = Object.keys(record);
   const placeholders = columns.map(() => '?').join(', ');
-  db.prepare(`INSERT INTO ${def.table} (${columns.join(', ')}) VALUES (${placeholders})`).run(
-    ...columns.map((c) => record[c] ?? null),
+  await run(
+    `INSERT INTO ${def.table} (${columns.join(', ')}) VALUES (${placeholders})`,
+    columns.map((c) => record[c] ?? null),
   );
   res.status(201).json(record);
-});
+}));
 
-router.patch('/:entity/:id', (req, res) => {
+router.patch('/:entity/:id', asyncHandler(async (req, res) => {
   const def = req.entityDef;
-  const existing = db.prepare(`SELECT * FROM ${def.table} WHERE id = ?`).get(req.params.id);
+  const existing = await get(`SELECT * FROM ${def.table} WHERE id = ?`, [req.params.id]);
   if (!existing) throw new ApiError(404, 'Not found');
 
   const parsed = def.schema.partial().safeParse(req.body);
@@ -104,18 +105,18 @@ router.patch('/:entity/:id', (req, res) => {
   const now = new Date().toISOString();
   const columns = Object.keys(updates);
   const setClause = columns.map((c) => `${c} = ?`).join(', ');
-  db.prepare(`UPDATE ${def.table} SET ${setClause}, updated_date = ? WHERE id = ?`).run(
+  await run(`UPDATE ${def.table} SET ${setClause}, updated_date = ? WHERE id = ?`, [
     ...columns.map((c) => updates[c] ?? null),
     now,
     req.params.id,
-  );
-  res.json(db.prepare(`SELECT * FROM ${def.table} WHERE id = ?`).get(req.params.id));
-});
+  ]);
+  res.json(await get(`SELECT * FROM ${def.table} WHERE id = ?`, [req.params.id]));
+}));
 
-router.delete('/:entity/:id', (req, res) => {
-  const result = db.prepare(`DELETE FROM ${req.entityDef.table} WHERE id = ?`).run(req.params.id);
+router.delete('/:entity/:id', asyncHandler(async (req, res) => {
+  const result = await run(`DELETE FROM ${req.entityDef.table} WHERE id = ?`, [req.params.id]);
   if (result.changes === 0) throw new ApiError(404, 'Not found');
   res.status(204).end();
-});
+}));
 
 export default router;

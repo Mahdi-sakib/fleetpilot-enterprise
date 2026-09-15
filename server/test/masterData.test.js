@@ -1,9 +1,11 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
-import path from 'node:path';
-import os from 'node:os';
 
-process.env.DB_PATH = path.join(os.tmpdir(), `fleetpilot-test-master-${Date.now()}.db`);
+process.env.DB_HOST = process.env.TEST_DB_HOST || '127.0.0.1';
+process.env.DB_PORT = process.env.TEST_DB_PORT || '3307';
+process.env.DB_USER = process.env.TEST_DB_USER || 'root';
+process.env.DB_PASSWORD = process.env.TEST_DB_PASSWORD || 'test';
+process.env.DB_NAME = `fleetpilot_test_master_${Date.now()}`;
 process.env.JWT_SECRET = 'test-secret';
 process.env.NODE_ENV = 'test';
 
