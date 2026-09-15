@@ -106,6 +106,9 @@ export const api = {
     resetPasswordRequest: (email) => request('/auth/forgot-password', { method: 'POST', body: { email } }),
     resetPassword: (data) => request('/auth/reset-password', { method: 'POST', body: data }),
     changePassword: (data) => request('/auth/change-password', { method: 'POST', body: data }),
+    listUsers: () => request('/auth/users'),
+    createUser: (data) => request('/auth/users', { method: 'POST', body: data }),
+    deleteUser: (id) => request(`/auth/users/${id}`, { method: 'DELETE' }),
     loginWithProvider: (provider, returnTo) => {
       window.location.href = `${API_BASE}/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo || '/')}`;
     },

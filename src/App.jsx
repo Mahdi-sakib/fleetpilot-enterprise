@@ -27,6 +27,7 @@ const Maintenance = lazy(() => import('./pages/Maintenance'));
 const Defects = lazy(() => import('./pages/Defects'));
 const DriverPortal = lazy(() => import('./pages/DriverPortal'));
 const MasterData = lazy(() => import('./pages/MasterData'));
+const Users = lazy(() => import('./pages/Users'));
 // Add page imports here
 
 const RouteFallback = () => (
@@ -76,6 +77,7 @@ return (
 <Route path="/defects" element={<Defects />} />
 <Route path="/driver-portal" element={<DriverPortal />} />
 <Route path="/masters/:type" element={<MasterData />} />
+<Route path="/users" element={<Users />} />
 </Route>
 </Route>
 <Route path="*" element={<PageNotFound />} />

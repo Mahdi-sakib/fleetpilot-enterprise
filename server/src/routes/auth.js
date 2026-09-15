@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { get, run } from '../db.js';
+import { all, get, run } from '../db.js';
 import { config } from '../config.js';
 import { newId, newOtp, newToken } from '../utils/ids.js';
 import { hashPassword, verifyPassword } from '../utils/passwords.js';
 import { signAccessToken } from '../utils/tokens.js';
 import { sendMail } from '../utils/mailer.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
@@ -209,6 +209,41 @@ router.post('/change-password', requireAuth, authLimiter, asyncHandler(async (re
     req.user.id,
   ]);
   res.json({ message: 'Password changed' });
+}));
+
+// --- Admin user management ---
+
+router.get('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const users = await all(
+    'SELECT id, email, role, email_verified, driver_id, created_date FROM users ORDER BY created_date DESC',
+  );
+  res.json(users.map((u) => ({ ...u, email_verified: !!u.email_verified })));
+}));
+
+router.post('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const parsed = credentialsSchema.extend({ role: z.enum(['user', 'admin']).optional() }).safeParse(req.body);
+  if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message || 'Invalid input');
+  const { email, password, role } = parsed.data;
+  const emailLower = email.toLowerCase();
+
+  if (await findByEmail(emailLower)) throw new ApiError(409, 'An account with that email already exists');
+
+  const id = newId();
+  const now = new Date().toISOString();
+  const password_hash = await hashPassword(password);
+  // Admin-created accounts skip OTP verification — the admin is vouching for the email directly.
+  await run(
+    `INSERT INTO users (id, email, password_hash, role, email_verified, created_date, updated_date)
+     VALUES (?, ?, ?, ?, 1, ?, ?)`,
+    [id, emailLower, password_hash, role || 'user', now, now],
+  );
+  res.status(201).json({ id, email: emailLower, role: role || 'user', email_verified: true });
+}));
+
+router.delete('/users/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  if (req.params.id === req.user.id) throw new ApiError(400, "You can't delete your own account");
+  await run('DELETE FROM users WHERE id = ?', [req.params.id]);
+  res.status(204).end();
 }));
 
 // --- Google OAuth (authorization-code flow, no extra SDK dependency) ---

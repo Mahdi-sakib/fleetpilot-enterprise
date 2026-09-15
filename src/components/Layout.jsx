@@ -1,17 +1,18 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-Menu, LayoutDashboard, Truck, Users, Route, Fuel, Wrench, AlertTriangle, UserCircle, Radar,
-Database, ChevronDown, MapPin, Fuel as FuelIcon, Tags, Droplet, Landmark,
+Menu, LayoutDashboard, Truck, Users as UsersIcon, Route, Fuel, Wrench, AlertTriangle, UserCircle, Radar,
+Database, ChevronDown, MapPin, Fuel as FuelIcon, Tags, Droplet, Landmark, ShieldCheck,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MASTER_DATA_TYPES } from "@/lib/masterData";
 import AccountMenu from "@/components/AccountMenu";
+import { useAuth } from "@/lib/AuthContext";
 
 const NAV = [
 { to: "/", label: "Command Center", icon: LayoutDashboard, end: true },
 { to: "/vehicles", label: "Vehicles", icon: Truck },
-{ to: "/drivers", label: "Drivers", icon: Users },
+{ to: "/drivers", label: "Drivers", icon: UsersIcon },
 { to: "/trips", label: "Trips & Dispatch", icon: Route },
 { to: "/fuel", label: "Fuel", icon: Fuel },
 { to: "/maintenance", label: "Maintenance", icon: Wrench },
@@ -29,6 +30,8 @@ locations: MapPin,
 
 function NavLinks({ onNavigate }) {
 const location = useLocation();
+const { user } = useAuth();
+const isAdmin = user?.role === "admin";
 const [mastersOpen, setMastersOpen] = useState(location.pathname.startsWith("/masters"));
 
 return (
@@ -84,6 +87,23 @@ isActive
 );
 })}
 </div>
+)}
+
+{isAdmin && (
+<NavLink
+to="/users"
+onClick={onNavigate}
+className={({ isActive }) =>
+`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+isActive
+? "bg-primary/15 text-primary glow-teal"
+: "text-sidebar-foreground/80 hover:bg-secondary hover:text-foreground"
+}`
+}
+>
+<ShieldCheck className="h-4 w-4" />
+Users
+</NavLink>
 )}
 </nav>
 );
