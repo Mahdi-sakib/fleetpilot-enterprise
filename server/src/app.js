@@ -12,9 +12,13 @@ import entityRoutes from './routes/entities.js';
 import uploadRoutes from './routes/uploads.js';
 import appRoutes from './routes/app.js';
 
-// Top-level await: any module that imports { app } — index.js, tests — is
-// guaranteed the schema exists and is migrated before it can issue a request.
-await initDb();
+// No top-level await here: some hosts (e.g. cPanel's Node.js Selector, via
+// LiteSpeed's lsnode.js) load the entry file with require(), and Node refuses
+// to require() an ESM graph that contains a top-level await
+// (ERR_REQUIRE_ASYNC_MODULE). Instead, kick off init immediately and gate
+// requests on it — any consumer of `app` (index.js, tests) is still
+// guaranteed the schema exists before a request is handled.
+export const ready = initDb();
 
 export const app = express();
 
@@ -26,6 +30,8 @@ app.use(compression());
 app.use(cors({ origin: config.clientUrl, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(config.uploadsDir, { maxAge: '7d' }));
+
+app.use((req, res, next) => { ready.then(() => next(), next); });
 
 app.use(attachUser);
 
