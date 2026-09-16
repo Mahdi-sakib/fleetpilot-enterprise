@@ -247,6 +247,34 @@ router.post('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) =
   res.status(201).json({ id, email: emailLower, role: role || 'user', driver_id: driver_id || null, email_verified: true });
 }));
 
+router.patch('/users/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  if (req.params.id === req.user.id) throw new ApiError(400, "You can't change your own role");
+  const target = await get('SELECT id FROM users WHERE id = ?', [req.params.id]);
+  if (!target) throw new ApiError(404, 'Not found');
+
+  const parsed = z
+    .object({
+      role: z.enum(['user', 'driver', 'admin_officer', 'admin']).optional(),
+      driver_id: z.string().nullable().optional(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message || 'Invalid input');
+  const { role, driver_id } = parsed.data;
+  if (role === undefined && driver_id === undefined) throw new ApiError(400, 'Nothing to update');
+
+  const sets = [];
+  const values = [];
+  if (role !== undefined) { sets.push('role = ?'); values.push(role); }
+  if (driver_id !== undefined) { sets.push('driver_id = ?'); values.push(driver_id || null); }
+  await run(`UPDATE users SET ${sets.join(', ')}, updated_date = ? WHERE id = ?`, [
+    ...values,
+    new Date().toISOString(),
+    req.params.id,
+  ]);
+  const updated = await get('SELECT id, email, role, email_verified, driver_id, created_date FROM users WHERE id = ?', [req.params.id]);
+  res.json({ ...updated, email_verified: !!updated.email_verified });
+}));
+
 router.delete('/users/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   if (req.params.id === req.user.id) throw new ApiError(400, "You can't delete your own account");
   await run('DELETE FROM users WHERE id = ?', [req.params.id]);

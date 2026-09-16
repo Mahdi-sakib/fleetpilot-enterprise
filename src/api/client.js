@@ -108,6 +108,7 @@ export const api = {
     changePassword: (data) => request('/auth/change-password', { method: 'POST', body: data }),
     listUsers: () => request('/auth/users'),
     createUser: (data) => request('/auth/users', { method: 'POST', body: data }),
+    updateUserRole: (id, data) => request(`/auth/users/${id}`, { method: 'PATCH', body: data }),
     deleteUser: (id) => request(`/auth/users/${id}`, { method: 'DELETE' }),
     loginWithProvider: (provider, returnTo) => {
       window.location.href = `${API_BASE}/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo || '/')}`;

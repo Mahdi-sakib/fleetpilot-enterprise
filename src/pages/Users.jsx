@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 const emptyForm = { email: "", password: "", role: "user", driver_id: "" };
 
@@ -23,6 +23,7 @@ export default function Users() {
   const [rows, setRows] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // the user row being role-assigned, or null when creating
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +44,15 @@ export default function Users() {
   }
 
   const openCreate = () => {
+    setEditing(null);
     setForm(emptyForm);
+    setError("");
+    setOpen(true);
+  };
+
+  const openRoleEdit = (row) => {
+    setEditing(row);
+    setForm({ ...emptyForm, role: row.role === "admin" ? "admin_officer" : row.role, driver_id: row.driver_id || "" });
     setError("");
     setOpen(true);
   };
@@ -51,17 +60,23 @@ export default function Users() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (form.password.length < 8) return setError("Password must be at least 8 characters");
     setSaving(true);
     try {
-      const payload = { email: form.email, password: form.password, role: form.role };
-      if (form.role === "driver" && form.driver_id) payload.driver_id = form.driver_id;
-      await api.auth.createUser(payload);
-      toast({ title: "Account created" });
+      if (editing) {
+        const payload = { role: form.role, driver_id: form.role === "driver" ? form.driver_id || null : null };
+        await api.auth.updateUserRole(editing.id, payload);
+        toast({ title: "Role updated" });
+      } else {
+        if (form.password.length < 8) return setError("Password must be at least 8 characters");
+        const payload = { email: form.email, password: form.password, role: form.role };
+        if (form.role === "driver" && form.driver_id) payload.driver_id = form.driver_id;
+        await api.auth.createUser(payload);
+        toast({ title: "Account created" });
+      }
       setOpen(false);
       load();
     } catch (err) {
-      setError(err.message || "Failed to create account");
+      setError(err.message || "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -83,7 +98,7 @@ export default function Users() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-heading text-3xl font-bold tracking-tight">Users</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create and manage sign-in accounts for this app.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Create accounts and assign roles.</p>
         </div>
         <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" /> Add user
@@ -98,7 +113,7 @@ export default function Users() {
               <TableHead>Role</TableHead>
               <TableHead>Verified</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="w-16" />
+              <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -112,9 +127,14 @@ export default function Users() {
                 </TableCell>
                 <TableCell>
                   {row.id !== me.id && (
-                    <button type="button" title="Delete" onClick={() => remove(row)} className="rounded-md p-1.5 transition-colors hover:bg-accent">
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button type="button" title="Change role" onClick={() => openRoleEdit(row)} className="rounded-md p-1.5 transition-colors hover:bg-accent">
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                      </button>
+                      <button type="button" title="Delete" onClick={() => remove(row)} className="rounded-md p-1.5 transition-colors hover:bg-accent">
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
+                      </button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
@@ -129,18 +149,27 @@ export default function Users() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="border-border/60 bg-card sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-heading">Add user</DialogTitle>
+            <DialogTitle className="font-heading">{editing ? "Change role" : "Add user"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Email *</Label>
-              <Input type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@example.com" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Password *</Label>
-              <Input type="password" required value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-              <p className="text-xs text-muted-foreground">At least 8 characters. Share this with the person directly.</p>
-            </div>
+            {editing ? (
+              <div className="space-y-1.5">
+                <Label>Account</Label>
+                <p className="rounded-md border border-border/60 bg-secondary/30 px-3 py-2 text-sm text-foreground">{editing.email}</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Email *</Label>
+                  <Input type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="name@example.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Password *</Label>
+                  <Input type="password" required value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+                  <p className="text-xs text-muted-foreground">At least 8 characters. Share this with the person directly.</p>
+                </div>
+              </>
+            )}
             <div className="space-y-1.5">
               <Label>Role</Label>
               <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v, driver_id: v === "driver" ? f.driver_id : "" }))}>
@@ -169,7 +198,7 @@ export default function Users() {
             {error && <p className="text-sm text-red-400">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create account"}</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Save role" : "Create account"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
