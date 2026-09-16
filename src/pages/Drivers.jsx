@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
+import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -10,14 +12,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import StatusBadge from "@/components/StatusBadge";
 import { isLicenseValid } from "@/lib/fleet";
 import moment from "moment";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Pencil } from "lucide-react";
 
 const emptyDriver = { full_name: "", email: "", phone: "", license_number: "", license_expiry: "", status: "active", safety_score: 100 };
 
 export default function Drivers() {
+  const { user } = useAuth();
+  const isAdmin = isAdminRole(user?.role);
   const [drivers, setDrivers] = useState(null);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyDriver);
   const [saving, setSaving] = useState(false);
 
@@ -30,16 +35,31 @@ export default function Drivers() {
     return drivers.filter((d) => !q || d.full_name?.toLowerCase().includes(q) || d.email?.toLowerCase().includes(q) || d.license_number?.toLowerCase().includes(q));
   }, [drivers, search]);
 
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyDriver);
+    setOpen(true);
+  };
+
+  const openEdit = (driver) => {
+    setEditing(driver);
+    setForm({ ...emptyDriver, ...driver });
+    setOpen(true);
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (!form.full_name || !form.email) return;
     setSaving(true);
     try {
-      await api.entities.Driver.create({
-        ...form,
-        safety_score: parseFloat(form.safety_score) || 100,
-      });
+      const payload = { ...form, safety_score: parseFloat(form.safety_score) || 100 };
+      if (editing) {
+        await api.entities.Driver.update(editing.id, payload);
+      } else {
+        await api.entities.Driver.create(payload);
+      }
       setOpen(false);
+      setEditing(null);
       setForm(emptyDriver);
       load();
     } finally {
@@ -64,9 +84,11 @@ export default function Drivers() {
             {expiring.length ? ` · ${expiring.length} license(s) expiring soon` : ""}
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" /> Add driver
-        </Button>
+        {isAdmin && (
+          <Button onClick={openCreate} className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> Add driver
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -83,6 +105,7 @@ export default function Drivers() {
               <TableHead>Status</TableHead>
               <TableHead className="hidden lg:table-cell">Trips</TableHead>
               <TableHead>Safety score</TableHead>
+              {isAdmin && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -114,17 +137,24 @@ export default function Drivers() {
                       <span className="font-mono text-sm font-semibold">{Math.round(d.safety_score || 100)}</span>
                     </div>
                   </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <button type="button" title="Edit" onClick={() => openEdit(d)} className="rounded-md p-1.5 transition-colors hover:bg-accent">
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                      </button>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
-            {!filtered.length && <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">No drivers match your search.</TableCell></TableRow>}
+            {!filtered.length && <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="py-10 text-center text-muted-foreground">No drivers match your search.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="border-border/60 bg-card sm:max-w-lg">
-          <DialogHeader><DialogTitle className="font-heading">Add driver</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-heading">{editing ? "Edit driver" : "Add driver"}</DialogTitle></DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Full name *</Label>
@@ -161,7 +191,7 @@ export default function Drivers() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Add driver"}</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Save changes" : "Add driver"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
