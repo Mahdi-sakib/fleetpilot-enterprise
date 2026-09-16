@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
+import { isAdminRole } from '@/lib/roles';
 
 export default function PageNotFound() {
 const location = useLocation();
@@ -39,7 +40,7 @@ The page <span className="font-medium text-slate-700">&quot;{pageName}&quot;</sp
 </div>
 
 {/* Admin Note */}
-{isFetched && authData.isAuthenticated && authData.user?.role === 'admin' && (
+{isFetched && authData.isAuthenticated && isAdminRole(authData.user?.role) && (
 <div className="mt-8 p-4 bg-slate-100 rounded-lg border border-slate-200">
 <div className="flex items-start space-x-3">
 <div className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center mt-0.5">

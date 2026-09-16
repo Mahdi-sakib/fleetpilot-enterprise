@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/api/client";
 import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { getMasterConfig } from "@/lib/masterData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ export default function MasterData() {
   const config = getMasterConfig(type);
   const { user } = useAuth();
   const { toast } = useToast();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminRole(user?.role);
 
   const [rows, setRows] = useState(null);
   const [search, setSearch] = useState("");

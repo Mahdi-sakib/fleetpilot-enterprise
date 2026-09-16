@@ -10,11 +10,12 @@ import StatusBadge from "@/components/StatusBadge";
 import VehicleFormDialog from "@/components/VehicleFormDialog";
 import { serviceState, kmToService, formatKm } from "@/lib/fleet";
 import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { Plus, Search, ChevronRight, Pencil } from "lucide-react";
 
 export default function Vehicles() {
 const { user } = useAuth();
-const isAdmin = user?.role === "admin";
+const isAdmin = isAdminRole(user?.role);
 const [vehicles, setVehicles] = useState(null);
 const [drivers, setDrivers] = useState([]);
 const [search, setSearch] = useState("");

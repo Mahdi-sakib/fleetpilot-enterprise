@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MASTER_DATA_TYPES } from "@/lib/masterData";
 import AccountMenu from "@/components/AccountMenu";
 import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 
 const NAV = [
 { to: "/", label: "Command Center", icon: LayoutDashboard, end: true },
@@ -31,7 +32,7 @@ locations: MapPin,
 function NavLinks({ onNavigate }) {
 const location = useLocation();
 const { user } = useAuth();
-const isAdmin = user?.role === "admin";
+const isAdmin = isAdminRole(user?.role);
 const [mastersOpen, setMastersOpen] = useState(location.pathname.startsWith("/masters"));
 
 return (

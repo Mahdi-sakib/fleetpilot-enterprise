@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole, ROLE_OPTIONS, roleLabel } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -12,20 +13,25 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Trash2 } from "lucide-react";
 
-const emptyForm = { email: "", password: "", role: "user" };
+const emptyForm = { email: "", password: "", role: "user", driver_id: "" };
 
 export default function Users() {
   const { user: me } = useAuth();
   const { toast } = useToast();
-  const isAdmin = me?.role === "admin";
+  const isAdmin = isAdminRole(me?.role);
 
   const [rows, setRows] = useState(null);
+  const [drivers, setDrivers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const load = async () => setRows(await api.auth.listUsers());
+  const load = async () => {
+    const [users, driverRows] = await Promise.all([api.auth.listUsers(), api.entities.Driver.list("full_name", 500)]);
+    setRows(users);
+    setDrivers(driverRows);
+  };
 
   useEffect(() => {
     if (isAdmin) load();
@@ -48,7 +54,9 @@ export default function Users() {
     if (form.password.length < 8) return setError("Password must be at least 8 characters");
     setSaving(true);
     try {
-      await api.auth.createUser(form);
+      const payload = { email: form.email, password: form.password, role: form.role };
+      if (form.role === "driver" && form.driver_id) payload.driver_id = form.driver_id;
+      await api.auth.createUser(payload);
       toast({ title: "Account created" });
       setOpen(false);
       load();
@@ -97,7 +105,7 @@ export default function Users() {
             {rows.map((row) => (
               <TableRow key={row.id} className="border-border/40">
                 <TableCell>{row.email}</TableCell>
-                <TableCell><Badge variant={row.role === "admin" ? "default" : "secondary"}>{row.role}</Badge></TableCell>
+                <TableCell><Badge variant={isAdminRole(row.role) ? "default" : "secondary"}>{roleLabel(row.role)}</Badge></TableCell>
                 <TableCell>{row.email_verified ? "Yes" : "No"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {row.created_date ? new Date(row.created_date).toLocaleDateString() : "—"}
@@ -135,14 +143,29 @@ export default function Users() {
             </div>
             <div className="space-y-1.5">
               <Label>Role</Label>
-              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v }))}>
+              <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v, driver_id: v === "driver" ? f.driver_id : "" }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-popover">
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {ROLE_OPTIONS.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {form.role === "admin_officer" && (
+                <p className="text-xs text-muted-foreground">Admin Officer has full access, same as Admin.</p>
+              )}
             </div>
+            {form.role === "driver" && (
+              <div className="space-y-1.5">
+                <Label>Link to driver profile</Label>
+                <Select value={form.driver_id || "none"} onValueChange={(v) => setForm((f) => ({ ...f, driver_id: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="None yet" /></SelectTrigger>
+                  <SelectContent className="bg-popover">
+                    <SelectItem value="none">None yet</SelectItem>
+                    {drivers.map((d) => <SelectItem key={d.id} value={d.id}>{d.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Optional — they can also link their own profile from the Driver Portal.</p>
+              </div>
+            )}
             {error && <p className="text-sm text-red-400">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

@@ -47,6 +47,21 @@ async function createIndexIfMissing(name, table, column) {
   }
 }
 
+// Relaxes a column from NOT NULL to nullable on an already-existing table
+// (ensureColumns below only ever adds columns, it can't loosen one that
+// already exists) — used when a field that used to be required becomes
+// optional, e.g. Trip.vehicle_id/driver_id once trip *requests* (no vehicle
+// or driver assigned yet) were introduced.
+async function ensureNullable(table, column, typeDef) {
+  const row = await get(
+    'SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+    [config.mysql.database, table, column],
+  );
+  if (row && row.IS_NULLABLE === 'NO') {
+    await exec(`ALTER TABLE ${table} MODIFY COLUMN ${column} ${typeDef}`);
+  }
+}
+
 // Adds any column present in an entity's definition but missing from an
 // already-created table (e.g. an existing database from before a field was
 // added), so the schema stays current without a manual migration step.
@@ -133,6 +148,8 @@ async function doInit() {
       await createIndexIfMissing(`idx_${def.table}_${col}`, def.table, col);
     }
   }
+  await ensureNullable('trips', 'vehicle_id', 'VARCHAR(36) NULL');
+  await ensureNullable('trips', 'driver_id', 'VARCHAR(36) NULL');
 
   for (const [entityName, rows] of Object.entries(seedData)) {
     const table = entities[entityName].table;

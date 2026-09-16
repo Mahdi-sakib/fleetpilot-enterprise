@@ -221,9 +221,16 @@ router.get('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) =>
 }));
 
 router.post('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-  const parsed = credentialsSchema.extend({ role: z.enum(['user', 'admin']).optional() }).safeParse(req.body);
+  const parsed = credentialsSchema
+    .extend({
+      // 'admin' isn't offered in the create-user UI anymore (superseded by
+      // 'admin_officer') but is still accepted here for scripts/back-compat.
+      role: z.enum(['user', 'driver', 'admin_officer', 'admin']).optional(),
+      driver_id: z.string().nullable().optional(),
+    })
+    .safeParse(req.body);
   if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message || 'Invalid input');
-  const { email, password, role } = parsed.data;
+  const { email, password, role, driver_id } = parsed.data;
   const emailLower = email.toLowerCase();
 
   if (await findByEmail(emailLower)) throw new ApiError(409, 'An account with that email already exists');
@@ -233,11 +240,11 @@ router.post('/users', requireAuth, requireAdmin, asyncHandler(async (req, res) =
   const password_hash = await hashPassword(password);
   // Admin-created accounts skip OTP verification — the admin is vouching for the email directly.
   await run(
-    `INSERT INTO users (id, email, password_hash, role, email_verified, created_date, updated_date)
-     VALUES (?, ?, ?, ?, 1, ?, ?)`,
-    [id, emailLower, password_hash, role || 'user', now, now],
+    `INSERT INTO users (id, email, password_hash, role, driver_id, email_verified, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+    [id, emailLower, password_hash, role || 'user', driver_id || null, now, now],
   );
-  res.status(201).json({ id, email: emailLower, role: role || 'user', email_verified: true });
+  res.status(201).json({ id, email: emailLower, role: role || 'user', driver_id: driver_id || null, email_verified: true });
 }));
 
 router.delete('/users/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {

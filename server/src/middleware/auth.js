@@ -23,8 +23,15 @@ export function requireAuth(req, res, next) {
   next();
 }
 
+// 'admin' is the legacy role name kept for accounts created before the
+// driver/admin_officer/user role split — it has the same full access as
+// 'admin_officer' going forward.
+export function isAdminRole(role) {
+  return role === 'admin' || role === 'admin_officer';
+}
+
 export function requireAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ message: 'Authentication required' });
-  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  if (!isAdminRole(req.user.role)) return res.status(403).json({ message: 'Admin access required' });
   next();
 }

@@ -100,9 +100,10 @@ export const entities = {
     table: 'trips',
     columns: `
       id VARCHAR(36) PRIMARY KEY,
-      vehicle_id VARCHAR(36) NOT NULL,
-      driver_id VARCHAR(36) NOT NULL,
+      vehicle_id VARCHAR(36),
+      driver_id VARCHAR(36),
       status VARCHAR(20) NOT NULL DEFAULT 'assigned',
+      requested_by VARCHAR(36),
       start_time TEXT,
       end_time TEXT,
       start_odometer INTEGER,
@@ -115,11 +116,14 @@ export const entities = {
       created_date VARCHAR(40) NOT NULL,
       updated_date VARCHAR(40) NOT NULL
     `,
-    indexes: ['vehicle_id', 'driver_id', 'status'],
+    indexes: ['vehicle_id', 'driver_id', 'status', 'requested_by'],
     schema: z.object({
-      vehicle_id: z.string().min(1),
-      driver_id: z.string().min(1),
-      status: z.enum(['assigned', 'in_progress', 'completed']).optional(),
+      // Optional so a 'user' can create a trip *request* with no vehicle/driver
+      // yet — an admin/admin_officer fills those in when assigning it.
+      vehicle_id: optionalString(),
+      driver_id: optionalString(),
+      status: z.enum(['requested', 'assigned', 'in_progress', 'completed', 'cancelled']).optional(),
+      requested_by: optionalString(),
       start_time: optionalString(),
       end_time: optionalString(),
       start_odometer: optionalInt(),

@@ -14,13 +14,14 @@ import DefectFormDialog from "@/components/DefectFormDialog";
 import {
   serviceState, kmSinceService, kmToService, formatCurrency, formatKm, tripDistance,
 } from "@/lib/fleet";
+import { isAdminRole } from "@/lib/roles";
 import moment from "moment";
 import { ArrowLeft, Pencil, Fuel, AlertTriangle, Plus } from "lucide-react";
 
 export default function VehicleDetail() {
   const { id } = useParams();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminRole(user?.role);
   const [vehicle, setVehicle] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [trips, setTrips] = useState([]);

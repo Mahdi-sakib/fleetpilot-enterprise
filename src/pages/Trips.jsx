@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/api/client";
+import { useAuth } from "@/lib/AuthContext";
+import { isAdminRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,37 +15,62 @@ import CompleteTripDialog from "@/components/CompleteTripDialog";
 import { startTrip, formatKm } from "@/lib/fleet";
 import { useToast } from "@/components/ui/use-toast";
 import moment from "moment";
-import { Plus, Play, CheckCircle2 } from "lucide-react";
+import { Plus, Play, CheckCircle2, Truck, X } from "lucide-react";
+
+const emptyAssignForm = { vehicle_id: "", driver_id: "", origin: "", destination: "", cost_center: "" };
+const emptyRequestForm = { origin: "", destination: "", notes: "" };
 
 export default function Trips() {
+const { user } = useAuth();
+const canAssign = isAdminRole(user?.role);
 const { toast } = useToast();
 const [trips, setTrips] = useState(null);
 const [vehicles, setVehicles] = useState([]);
 const [drivers, setDrivers] = useState([]);
+const [vehicleTypes, setVehicleTypes] = useState([]);
 const [filter, setFilter] = useState("all");
+
 const [assignOpen, setAssignOpen] = useState(false);
-const [completing, setCompleting] = useState(null);
-const [form, setForm] = useState({ vehicle_id: "", driver_id: "", origin: "", destination: "", cost_center: "" });
+const [assigningTrip, setAssigningTrip] = useState(null); // the requested trip being fulfilled, or null when creating a fresh trip
+const [form, setForm] = useState(emptyAssignForm);
+const [vehicleTypeFilter, setVehicleTypeFilter] = useState("all");
 const [saving, setSaving] = useState(false);
+
+const [requestOpen, setRequestOpen] = useState(false);
+const [requestForm, setRequestForm] = useState(emptyRequestForm);
+const [requesting, setRequesting] = useState(false);
+
+const [completing, setCompleting] = useState(null);
 const [costCenters, setCostCenters] = useState([]);
 
 const load = async () => {
-const [t, v, d, cc] = await Promise.all([
+const [t, v, d, cc, vt] = await Promise.all([
 api.entities.Trip.list("-created_date", 500),
 api.entities.Vehicle.list("-created_date", 500),
 api.entities.Driver.list("-created_date", 500),
 api.entities.CostCenter.list("name", 200),
+api.entities.VehicleType.list("name", 100),
 ]);
 setTrips(t);
 setVehicles(v);
 setDrivers(d);
 setCostCenters(cc);
+setVehicleTypes(vt);
 };
 useEffect(() => { load(); }, []);
 
 const filtered = useMemo(() => (trips || []).filter((t) => filter === "all" || t.status === filter), [trips, filter]);
 
-const availableVehicles = vehicles.filter((v) => v.status === "active");
+const availableVehicles = vehicles.filter(
+(v) => v.status === "active" && (vehicleTypeFilter === "all" || v.type === vehicleTypeFilter)
+);
+
+const openAssign = (trip = null) => {
+setAssigningTrip(trip);
+setForm(trip ? { vehicle_id: "", driver_id: "", origin: trip.origin || "", destination: trip.destination || "", cost_center: trip.cost_center || "" } : emptyAssignForm);
+setVehicleTypeFilter("all");
+setAssignOpen(true);
+};
 
 const assign = async (e) => {
 e.preventDefault();
@@ -50,18 +78,49 @@ if (!form.vehicle_id || !form.driver_id) return;
 setSaving(true);
 try {
 const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
+if (assigningTrip) {
+await api.entities.Trip.update(assigningTrip.id, {
+...form,
+status: "assigned",
+start_odometer: vehicle?.odometer || 0,
+});
+toast({ title: "Trip assigned", description: "Vehicle and driver dispatched to the driver portal." });
+} else {
 await api.entities.Trip.create({
 ...form,
 status: "assigned",
 start_odometer: vehicle?.odometer || 0,
 });
 toast({ title: "Trip assigned", description: `${form.origin || "Trip"} → ${form.destination || "destination"} dispatched to the driver portal.` });
+}
 setAssignOpen(false);
-setForm({ vehicle_id: "", driver_id: "", origin: "", destination: "", cost_center: "" });
+setAssigningTrip(null);
+setForm(emptyAssignForm);
 load();
 } finally {
 setSaving(false);
 }
+};
+
+const requestTrip = async (e) => {
+e.preventDefault();
+setRequesting(true);
+try {
+await api.entities.Trip.create({ ...requestForm, status: "requested", requested_by: user.id });
+toast({ title: "Trip requested", description: "An admin will assign a vehicle and driver soon." });
+setRequestOpen(false);
+setRequestForm(emptyRequestForm);
+load();
+} finally {
+setRequesting(false);
+}
+};
+
+const cancelRequest = async (trip) => {
+if (!window.confirm("Cancel this trip request?")) return;
+await api.entities.Trip.update(trip.id, { status: "cancelled" });
+toast({ title: "Request cancelled" });
+load();
 };
 
 const start = async (trip) => {
@@ -81,15 +140,22 @@ return (
 <h1 className="font-heading text-3xl font-bold tracking-tight">Trips & Dispatch</h1>
 <p className="mt-1 text-sm text-muted-foreground">
 {trips.filter((t) => t.status === "in_progress").length} on the road · {trips.filter((t) => t.status === "assigned").length} awaiting start
+{trips.filter((t) => t.status === "requested").length > 0 && ` · ${trips.filter((t) => t.status === "requested").length} awaiting assignment`}
 </p>
 </div>
-<Button onClick={() => setAssignOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+{canAssign ? (
+<Button onClick={() => openAssign()} className="bg-primary text-primary-foreground hover:bg-primary/90">
 <Plus className="mr-2 h-4 w-4" /> Assign trip
 </Button>
+) : (
+<Button onClick={() => setRequestOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+<Plus className="mr-2 h-4 w-4" /> Request a trip
+</Button>
+)}
 </div>
 
-<div className="flex gap-2">
-{["all", "assigned", "in_progress", "completed"].map((s) => (
+<div className="flex flex-wrap gap-2">
+{["all", "requested", "assigned", "in_progress", "completed"].map((s) => (
 <button
 key={s}
 onClick={() => setFilter(s)}
@@ -134,6 +200,15 @@ return (
 </TableCell>
 <TableCell className="text-right font-mono text-sm">{t.status === "completed" ? formatKm(t.distance_km) : "—"}</TableCell>
 <TableCell className="text-right">
+<div className="flex items-center justify-end gap-1.5">
+{t.status === "requested" && canAssign && (
+<>
+<Button size="sm" variant="outline" onClick={() => openAssign(t)}><Truck className="mr-1.5 h-3.5 w-3.5" /> Assign</Button>
+<button type="button" title="Cancel request" onClick={() => cancelRequest(t)} className="rounded-md p-1.5 transition-colors hover:bg-accent">
+<X className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
+</button>
+</>
+)}
 {t.status === "assigned" && (
 <Button size="sm" variant="outline" onClick={() => start(t)}><Play className="mr-1.5 h-3.5 w-3.5" /> Start</Button>
 )}
@@ -142,6 +217,7 @@ return (
 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Finish
 </Button>
 )}
+</div>
 </TableCell>
 </TableRow>
 );
@@ -151,10 +227,20 @@ return (
 </Table>
 </Card>
 
-<Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+<Dialog open={assignOpen} onOpenChange={(o) => { setAssignOpen(o); if (!o) setAssigningTrip(null); }}>
 <DialogContent className="border-border/60 bg-card sm:max-w-lg">
-<DialogHeader><DialogTitle className="font-heading">Assign a trip</DialogTitle></DialogHeader>
+<DialogHeader><DialogTitle className="font-heading">{assigningTrip ? "Assign vehicle & driver" : "Assign a trip"}</DialogTitle></DialogHeader>
 <form onSubmit={assign} className="space-y-4">
+<div className="space-y-1.5">
+<Label>Vehicle type</Label>
+<Select value={vehicleTypeFilter} onValueChange={(v) => { setVehicleTypeFilter(v); setForm((f) => ({ ...f, vehicle_id: "" })); }}>
+<SelectTrigger><SelectValue /></SelectTrigger>
+<SelectContent className="bg-popover">
+<SelectItem value="all">All types</SelectItem>
+{vehicleTypes.map((vt) => <SelectItem key={vt.id} value={vt.code}>{vt.name}</SelectItem>)}
+</SelectContent>
+</Select>
+</div>
 <div className="space-y-1.5">
 <Label>Vehicle *</Label>
 <Select value={form.vehicle_id} onValueChange={(v) => setForm((f) => ({ ...f, vehicle_id: v }))} required>
@@ -196,6 +282,33 @@ return (
 <DialogFooter>
 <Button type="button" variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
 <Button type="submit" disabled={saving}>{saving ? "Dispatching…" : "Assign trip"}</Button>
+</DialogFooter>
+</form>
+</DialogContent>
+</Dialog>
+
+<Dialog open={requestOpen} onOpenChange={setRequestOpen}>
+<DialogContent className="border-border/60 bg-card sm:max-w-lg">
+<DialogHeader><DialogTitle className="font-heading">Request a trip</DialogTitle></DialogHeader>
+<form onSubmit={requestTrip} className="space-y-4">
+<div className="grid grid-cols-2 gap-4">
+<div className="space-y-1.5">
+<Label>Origin</Label>
+<Input value={requestForm.origin} onChange={(e) => setRequestForm((f) => ({ ...f, origin: e.target.value }))} placeholder="Dhaka Hub" />
+</div>
+<div className="space-y-1.5">
+<Label>Destination</Label>
+<Input value={requestForm.destination} onChange={(e) => setRequestForm((f) => ({ ...f, destination: e.target.value }))} placeholder="Chattogram" />
+</div>
+</div>
+<div className="space-y-1.5">
+<Label>Notes</Label>
+<Textarea rows={3} value={requestForm.notes} onChange={(e) => setRequestForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Purpose of the trip, preferred time, etc." />
+</div>
+<p className="text-xs text-muted-foreground">An admin will review your request and assign a vehicle and driver.</p>
+<DialogFooter>
+<Button type="button" variant="outline" onClick={() => setRequestOpen(false)}>Cancel</Button>
+<Button type="submit" disabled={requesting}>{requesting ? "Requesting…" : "Submit request"}</Button>
 </DialogFooter>
 </form>
 </DialogContent>
